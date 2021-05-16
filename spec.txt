@@ -1,0 +1,149 @@
+<VALUE>
+-------
+
+Values are a sequence made of:
+- a <HEADER>;
+- <DATA> that encode the value and whose encoding depends on the <TYPE>
+  that is contained in the <HEADER>.
+
+<HEADER>
+--------
+
+Each value starts by a <HEADER> byte that contains:
+- a <TYPE> on the highest 4 bits;
+- a <SIZE> on the lowest 4 bits;
+- (optionally) a little-endian unsigned integer encoding the size of the value.
+The latter is only present if <SIZE> denotes a large size.
+
+<TYPE>
+------
+
+| Bits | Type                                             |
+|------+--------------------------------------------------|
+| 0000 | Unsigned Integer, Little Endian                  |
+| 0001 | Signed Integer, Little Endian                    |
+| 0010 | Unsigned Integer, Big Endian                     |
+| 0011 | Signed Integer, Big Endian                       |
+| 0100 | Boolean                                          |
+| 0101 | Float                                            |
+| 0110 | String                                           |
+| 0111 | (reserved - UTF-8?)                              |
+| 1000 | Array                                            |
+| 1001 | (reserved - packed arrays?)                      |
+| 1010 | Record                                           |
+| 1011 | (reserved)                                       |
+| 1100 | (reserved)                                       |
+| 1101 | (reserved)                                       |
+| 1110 | (reserved)                                       |
+| 1111 | (reserved)                                       |
+
+<SIZE>
+------
+
+| Bits | Size                |
+|------+---------------------|
+| 0000 | tiny (value is 000) |
+| 0001 | tiny (value is 001) |
+| 0010 | tiny (value is 010) |
+| 0011 | tiny (value is 011) |
+| 0100 | tiny (value is 100) |
+| 0101 | tiny (value is 101) |
+| 0110 | tiny (value is 110) |
+| 0111 | tiny (value is 111) |
+| 1000 | small (1 byte)      |
+| 1001 | small (2 bytes)     |
+| 1010 | small (4 bytes)     |
+| 1011 | small (8 bytes)     |
+| 1100 | large (1 byte)      |
+| 1101 | large (2 bytes)     |
+| 1110 | large (4 bytes)     |
+| 1111 | large (8 bytes)     |
+
+For tiny sizes, the value is encoded in the remaining 3 bits of the size itself.
+So the value effectively takes 0 additional bytes.
+The value can still be signed.
+
+For small sizes, the size directly encodes the number of bytes that the value takes.
+
+For large sizes, the size encodes the size of the size.
+If the size of the size is N, the next N bytes contain a little-endian unsigned integer
+that encodes the actual size of the value.
+
+<DATA> (0000 to 0011: Integers)
+-------------------------------
+
+Integers are encoded as the <TYPE> says.
+
+<DATA> (0100: Boolean)
+----------------------
+
+Booleans are encoded as follow:
+- false is encoded as zero (all bits are 0);
+- true is encoded as anything else (at least one bit is 1).
+
+<DATA> (0101: Float)
+--------------------
+
+Floats are encoded using the IEEE 754 standard.
+In particular, floats of <SIZE> 8 are double precision.
+
+<DATA> (0110: UTF-8 Text String)
+--------------------------------
+
+UTF-8 strings are encoded using UTF-8.
+If <SIZE> is tiny, the string is empty and the 3-bit value is irrelevant.
+One-byte strings which could fit in 3 bits must be encoded using 1 byte
+(small <SIZE> of 1, or large <SIZE> of 1) instead.
+
+<DATA> (0111: Bytes)
+--------------------
+
+Bytes are encoded as themselves.
+
+<DATA> (1000: Array)
+--------------------
+
+Arrays are encoded by concatenating all the encodings of their items.
+
+<DATA> (1010: Record)
+---------------------
+
+Records are encoded by concatenating a sequence of <FIELD>.
+
+<FIELD>
+-------
+
+A field is the concatenation of:
+- a <TAG>;
+- and a <VALUE>.
+
+<TAG>
+-----
+
+The first byte denotes the size of the tag.
+
+If the highest 5 bits of the size are not 11111, then the first byte is the value of the tag
+itself, as an unsigned 8-bit integer.
+
+If the highest 6 bits of the size are 111110, then the value of the tag directly follows
+this first tag, as an unsigned little endian integer whose size depends on the three
+lower bits of the first byte:
+
+| 1111 1000 | small (1 byte)  |
+| 1111 1001 | small (2 bytes) |
+| 1111 1010 | small (4 bytes) |
+| 1111 1011 | small (8 bytes) |
+
+If the highest bits of the size are 111111, then the first byte is followed by
+an unsigned little endian integer that encodes the actual size of the value of the tag:
+
+| 1111 1100 | large (1 byte)  |
+| 1111 1101 | large (2 bytes) |
+| 1111 1110 | large (4 bytes) |
+| 1111 1111 | large (8 bytes) |
+
+The actual size is followed by the value of the tag as an unsigned little endian integer.
+
+Usually, one byte is enough to encode tags. If a protocol requires 248 tags or more,
+one can start using small tags. Large tags are mostly useful if you want your tag
+to represent a name (ASCII-encoded in the tag value for instance).
