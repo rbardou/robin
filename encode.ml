@@ -227,12 +227,12 @@ let int value =
       Char (Char.chr value)
     else if value land (lnot 0xFF) = 0 then
       let bytes = Bytes.create 2 in
-      Bytes.set bytes 0 (Char.chr 0b0001_1000);
+      Bytes.set bytes 0 (Char.chr 0b0000_1000);
       Bytes.set bytes 1 (Char.chr value);
       make_bytes bytes
     else if value land (lnot 0xFFFF) = 0 then
-      let bytes = Bytes.create 2 in
-      Bytes.set bytes 0 (Char.chr 0b0001_1001);
+      let bytes = Bytes.create 3 in
+      Bytes.set bytes 0 (Char.chr 0b0000_1001);
       Bytes.set_uint16_le bytes 1 value;
       make_bytes bytes
     else
@@ -243,15 +243,15 @@ let int value =
     else if value land lnot 0x7F = lnot 0x7F then
       let bytes = Bytes.create 2 in
       Bytes.set bytes 0 (Char.chr 0b0001_1000);
-      Bytes.set bytes 1 (Char.chr value);
+      Bytes.set_uint8 bytes 1 value;
       make_bytes bytes
     else if value land lnot 0x7FFF = lnot 0x7FFF then
-      let bytes = Bytes.create 2 in
+      let bytes = Bytes.create 3 in
       Bytes.set bytes 0 (Char.chr 0b0001_1001);
       Bytes.set_uint16_le bytes 1 value;
       make_bytes bytes
     else
-      int64_large_positive (Int64.of_int value)
+      int64_large_negative (Int64.of_int value)
   )
 
 let uintle value =
