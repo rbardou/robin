@@ -2,6 +2,7 @@ type error =
   | End_of_file
   | Unsupported_data_type of char (* header byte *)
   | Unsupported_data_size of Int64.t
+  | Unsupported_string_size of Int64.t
   | Array_item_too_long of int (* offset of the end of the item *)
   | Record_field_too_long of int (* offset of the end of the field *)
 
@@ -9,6 +10,7 @@ let show_error = function
   | End_of_file -> "end of file"
   | Unsupported_data_type c -> Printf.sprintf "unsupported data type: %C" c
   | Unsupported_data_size i -> Printf.sprintf "unsupported data size: %i" (Int64.to_int i)
+  | Unsupported_string_size i -> Printf.sprintf "unsupported string size: %i" (Int64.to_int i)
   | Array_item_too_long i -> Printf.sprintf "array item too long (ends at %d)" i
   | Record_field_too_long i -> Printf.sprintf "record field too long (ends at %d)" i
 
@@ -50,6 +52,8 @@ let value_exn read =
         c
   in
   let read_string count =
+    if count > Sys.max_string_length || count < 0 then
+      error (Unsupported_string_size (Int64.of_int count));
     if String.length !buffer - !offset >= count then (
       (* Buffer already contains enough bytes. *)
       let s = String.sub !buffer !offset count in
@@ -86,7 +90,8 @@ let value_exn read =
     )
   in
   let read_string_64 data_size =
-    (* TODO: may raise Unsupported_data_size? *)
+    if data_size > Int64.of_int Sys.max_string_length || data_size < 0L then
+      error (Unsupported_string_size data_size);
     read_string (Int64.to_int data_size)
   in
   let read_uint8 () = Char.code (read_char ()) in

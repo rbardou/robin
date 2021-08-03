@@ -5,6 +5,7 @@ type error =
   | End_of_file
   | Unsupported_data_type of char (* header byte *)
   | Unsupported_data_size of Int64.t
+  | Unsupported_string_size of Int64.t
   | Array_item_too_long of int (* offset of the end of the item *)
   | Record_field_too_long of int (* offset of the end of the field *)
 
